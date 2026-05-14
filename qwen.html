@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyBatis 日志格式化工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/fontsource-inter@5/index.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/fontsource-jetbrains-mono@5/index.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-light: #e0e7ff;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #0f172a;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px 30px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #818cf8, #6366f1, #4f46e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .panel-title {
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title svg {
+            width: 20px;
+            height: 20px;
+            color: var(--primary);
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn:hover {
+            background: var(--border);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            flex: 1;
+            min-height: 400px;
+            padding: 20px;
+            background: var(--bg-input);
+            color: var(--text);
+            border: none;
+            resize: vertical;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            outline: none;
+        }
+
+        textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .output-panel {
+            min-height: 400px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+
+        .sql-block {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sql-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sql-type {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .type-select { background: #dbeafe; color: #1e40af; }
+        .type-insert { background: #dcfce7; color: #166534; }
+        .type-update { background: #fef3c7; color: #92400e; }
+        .type-delete { background: #fee2e2; color: #991b1b; }
+        .type-other { background: #e5e7eb; color: #374151; }
+
+        .sql-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .sql-keyword { color: #c084fc; font-weight: 600; }
+        .sql-string { color: #fbbf24; }
+        .sql-number { color: #f97316; }
+        .sql-comment { color: #6b7280; font-style: italic; }
+        .sql-function { color: #38bdf8; }
+
+        .params-table {
+            width: 100%;
+            margin-top: 16px;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .params-table th {
+            text-align: left;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .params-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .params-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .param-index {
+            background: var(--primary);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .param-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--warning);
+        }
+
+        .param-type {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 16px 20px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .stat-icon.blue { background: #dbeafe; color: #2563eb; }
+        .stat-icon.green { background: #dcfce7; color: #16a34a; }
+        .stat-icon.yellow { background: #fef3c7; color: #d97706; }
+        .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
+
+        .stat-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+            z-index: 1000;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast svg {
+            width: 20px;
+            height: 20px;
+            color: var(--success);
+        }
+
+        .format-options {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .option-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+
+        .toggle input:checked + .toggle-slider::before {
+            transform: translateX(20px);
+        }
+
+        .tab-group {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--bg);
+            border-radius: 10px;
+        }
+
+        .tab-btn {
+            padding: 6px 14px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .result-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--bg);
+            border-radius: 10px;
+        }
+
+        .result-tab {
+            padding: 6px 14px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .result-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .raw-log-view {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .log-line {
+            padding: 2px 0;
+        }
+
+        .log-timestamp { color: #6b7280; }
+        .log-level-debug { color: #3b82f6; }
+        .log-level-info { color: #22c55e; }
+        .log-level-warn { color: #f59e0b; }
+        .log-level-error { color: #ef4444; }
+        .log-preparing { color: #c084fc; }
+        .log-parameters { color: #fbbf24; }
+        .log-columns { color: #38bdf8; }
+        .log-row { color: #22c55e; }
+        .log-total { color: #f97316; }
+
+        .copy-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .sql-formatted {
+            margin-top: 12px;
+            padding: 16px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+        }
+
+        .sql-formatted-label {
+            font-size: 0.75rem;
+            color: var(--primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
+        }
+
+        .highlight-params {
+            color: var(--warning);
+            font-weight: 500;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 16px 0;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MyBatis 日志格式化工具</h1>
+        <p>智能解析 MyBatis 日志，自动拼接 SQL 语句，支持语法高亮与参数提取</p>
+    </header>
+
+    <div class="container">
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <div class="stat-icon blue">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">SQL 语句数</span>
+                    <span class="stat-value" id="sqlCount">0</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon green">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">参数总数</span>
+                    <span class="stat-value" id="paramCount">0</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon yellow">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">查询耗时</span>
+                    <span class="stat-value" id="timeCount">-</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon purple">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">日志行数</span>
+                    <span class="stat-value" id="lineCount">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        原始日志输入
+                    </div>
+                    <div class="panel-actions">
+                        <button class="btn" onclick="loadExample()">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            示例
+                        </button>
+                        <button class="btn" onclick="clearInput()">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            清空
+                        </button>
+                        <button class="btn btn-primary" onclick="formatLogs()">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            格式化
+                        </button>
+                    </div>
+                </div>
+                <textarea id="logInput" placeholder="在此粘贴 MyBatis 日志内容...&#10;&#10;支持格式：&#10;==>  Preparing: SELECT * FROM user WHERE id = ?&#10;==> Parameters: 123(Integer)"></textarea>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        格式化结果
+                    </div>
+                    <div class="panel-actions">
+                        <div class="result-tabs">
+                            <button class="result-tab active" onclick="switchResultTab('formatted', this)">格式化SQL</button>
+                            <button class="result-tab" onclick="switchResultTab('raw', this)">原始日志</button>
+                        </div>
+                        <button class="btn btn-success" onclick="copyAllSQL()" id="copyAllBtn" style="display:none;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            复制全部
+                        </button>
+                    </div>
+                </div>
+                <div id="formattedResult" class="output-panel">
+                    <div class="empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <p>粘贴日志后点击「格式化」查看结果</p>
+                    </div>
+                </div>
+                <div id="rawResult" class="output-panel" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>MyBatis 日志格式化工具 | 支持标准 Spring Boot / MyBatis 日志格式</p>
+    </footer>
+
+    <script>
+        let parsedSQLs = [];
+        let currentTab = 'formatted';
+
+        function switchResultTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (tab === 'formatted') {
+                document.getElementById('formattedResult').style.display = 'block';
+                document.getElementById('rawResult').style.display = 'none';
+            } else {
+                document.getElementById('formattedResult').style.display = 'none';
+                document.getElementById('rawResult').style.display = 'block';
+            }
+        }
+
+        function loadExample() {
+            const example = `2024-01-15 10:23:45.123 DEBUG 12345 --- [nio-8080-exec-1] c.e.m.mapper.UserMapper.selectById     : ==>  Preparing: SELECT u.id, u.username, u.email, u.phone, u.status, u.create_time, u.update_time FROM t_user u WHERE u.id = ? AND u.status != 'DELETED'
+2024-01-15 10:23:45.145 DEBUG 12345 --- [nio-8080-exec-1] c.e.m.mapper.UserMapper.selectById     : ==> Parameters: 1001(Long)
+2024-01-15 10:23:45.178 DEBUG 12345 --- [nio-8080-exec-1] c.e.m.mapper.UserMapper.selectById     : <==      Total: 1
+
+2024-01-15 10:24:12.456 DEBUG 12345 --- [nio-8080-exec-2] c.e.m.mapper.UserMapper.updateUser     : ==>  Preparing: UPDATE t_user SET username = ?, email = ?, phone = ?, status = ?, update_time = NOW() WHERE id = ? AND status != 'DELETED'
+2024-01-15 10:24:12.478 DEBUG 12345 --- [nio-8080-exec-2] c.e.m.mapper.UserMapper.updateUser     : ==> Parameters: zhangsan(String), zhangsan@example.com(String), 13800138000(String), ACTIVE(String), 1001(Long)
+2024-01-15 10:24:12.512 DEBUG 12345 --- [nio-8080-exec-2] c.e.m.mapper.UserMapper.updateUser     : <==    Updates: 1
+
+2024-01-15 10:25:30.789 DEBUG 12345 --- [nio-8080-exec-3] c.e.m.mapper.UserMapper.insertUser     : ==>  Preparing: INSERT INTO t_user (username, email, phone, status, create_time, update_time) VALUES (?, ?, ?, ?, NOW(), NOW())
+2024-01-15 10:25:30.812 DEBUG 12345 --- [nio-8080-exec-3] c.e.m.mapper.UserMapper.insertUser     : ==> Parameters: lisi(String), lisi@example.com(String), 13900139000(String), ACTIVE(String)
+2024-01-15 10:25:30.856 DEBUG 12345 --- [nio-8080-exec-3] c.e.m.mapper.UserMapper.insertUser     : <==    Updates: 1
+
+2024-01-15 10:26:45.123 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : ==>  Preparing: SELECT o.id, o.user_id, o.product_name, o.amount, o.status, o.create_time FROM t_order o WHERE o.user_id = ? AND o.status IN (?, ?) ORDER BY o.create_time DESC LIMIT ? OFFSET ?
+2024-01-15 10:26:45.156 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : ==> Parameters: 1001(Long), PENDING(String), PAID(String), 10(Integer), 0(Integer)
+2024-01-15 10:26:45.234 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : <==    Columns: id, user_id, product_name, amount, status, create_time
+2024-01-15 10:26:45.235 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : <==        Row: 101, 1001, MacBook Pro, 12999.00, PAID, 2024-01-15 10:20:00
+2024-01-15 10:26:45.236 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : <==        Row: 102, 1001, iPhone 15, 7999.00, PENDING, 2024-01-15 10:22:00
+2024-01-15 10:26:45.237 DEBUG 12345 --- [nio-8080-exec-4] c.e.m.mapper.OrderMapper.selectList    : <==      Total: 2
+
+2024-01-15 10:27:00.456 DEBUG 12345 --- [nio-8080-exec-5] c.e.m.mapper.UserMapper.deleteUser     : ==>  Preparing: UPDATE t_user SET status = 'DELETED', update_time = NOW() WHERE id = ? AND status != 'DELETED'
+2024-01-15 10:27:00.478 DEBUG 12345 --- [nio-8080-exec-5] c.e.m.mapper.UserMapper.deleteUser     : ==> Parameters: 1002(Long)
+2024-01-15 10:27:00.512 DEBUG 12345 --- [nio-8080-exec-5] c.e.m.mapper.UserMapper.deleteUser     : <==    Updates: 1`;
+
+            document.getElementById('logInput').value = example;
+            formatLogs();
+        }
+
+        function clearInput() {
+            document.getElementById('logInput').value = '';
+            parsedSQLs = [];
+            document.getElementById('formattedResult').innerHTML = `
+                <div class="empty-state">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <p>粘贴日志后点击「格式化」查看结果</p>
+                </div>`;
+            document.getElementById('rawResult').innerHTML = '';
+            document.getElementById('copyAllBtn').style.display = 'none';
+            updateStats(0, 0, '-', 0);
+        }
+
+        function updateStats(sqlCount, paramCount, time, lineCount) {
+            document.getElementById('sqlCount').textContent = sqlCount;
+            document.getElementById('paramCount').textContent = paramCount;
+            document.getElementById('timeCount').textContent = time;
+            document.getElementById('lineCount').textContent = lineCount;
+        }
+
+        function showToast(message) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <span>${message}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function parseMyBatisLog(logText) {
+            const lines = logText.split('\n').filter(line => line.trim());
+            const sqlBlocks = [];
+            let currentSql = null;
+            let totalParams = 0;
+            
+            const linesWithoutEmpty = lines.filter(l => l.trim());
+            const lineCount = linesWithoutEmpty.length;
+            
+            const preparingRegex = /==>.*Preparing:\s*(.+)/i;
+            const parametersRegex = /==>.*Parameters:\s*(.+)/i;
+            const columnsRegex = /<==\s+Columns:\s*(.+)/i;
+            const rowRegex = /<==\s+Row:\s*(.+)/i;
+            const totalRegex = /<==\s+Total:\s*(\d+)/i;
+            const updatesRegex = /<==\s+Updates:\s*(\d+)/i;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Parse Preparing
+                const preparingMatch = line.match(preparingRegex);
+                if (preparingMatch) {
+                    currentSql = {
+                        sql: preparingMatch[1].trim(),
+                        params: [],
+                        columns: null,
+                        rows: [],
+                        total: null,
+                        updates: null,
+                        timestamp: extractTimestamp(lines[i])
+                    };
+                    sqlBlocks.push(currentSql);
+                    continue;
+                }
+                
+                // Parse Parameters
+                if (currentSql) {
+                    const paramsMatch = line.match(parametersRegex);
+                    if (paramsMatch) {
+                        const paramStr = paramsMatch[1].trim();
+                        currentSql.params = parseParameters(paramStr);
+                        totalParams += currentSql.params.length;
+                        continue;
+                    }
+                    
+                    const columnsMatch = line.match(columnsRegex);
+                    if (columnsMatch) {
+                        currentSql.columns = columnsMatch[1].trim();
+                        continue;
+                    }
+                    
+                    const rowMatch = line.match(rowRegex);
+                    if (rowMatch) {
+                        currentSql.rows.push(rowMatch[1].trim());
+                        continue;
+                    }
+                    
+                    const totalMatch = line.match(totalRegex);
+                    if (totalMatch) {
+                        currentSql.total = parseInt(totalMatch[1]);
+                        continue;
+                    }
+                    
+                    const updatesMatch = line.match(updatesRegex);
+                    if (updatesMatch) {
+                        currentSql.updates = parseInt(updatesMatch[1]);
+                        continue;
+                    }
+                }
+            }
+            
+            // Calculate approximate time
+            let timeEstimate = '-';
+            if (sqlBlocks.length > 0 && sqlBlocks[0].timestamp && sqlBlocks[sqlBlocks.length - 1].timestamp) {
+                const start = parseTimestamp(sqlBlocks[0].timestamp);
+                const end = parseTimestamp(sqlBlocks[sqlBlocks.length - 1].timestamp);
+                if (start && end) {
+                    const diff = end - start;
+                    if (diff < 1000) {
+                        timeEstimate = diff + 'ms';
+                    } else {
+                        timeEstimate = (diff / 1000).toFixed(2) + 's';
+                    }
+                }
+            }
+            
+            return { sqlBlocks, totalParams, timeEstimate, lineCount };
+        }
+
+        function extractTimestamp(line) {
+            const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]?\d*)/);
+            return tsMatch ? tsMatch[1] : null;
+        }
+
+        function parseTimestamp(ts) {
+            if (!ts) return null;
+            const cleaned = ts.replace(',', '.').replace(' ', 'T');
+            const date = new Date(cleaned);
+            return isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        function parseParameters(paramStr) {
+            const params = [];
+            const regex = /([^,]+?)\(([^)]+)\)/g;
+            let match;
+            let index = 1;
+            
+            // Handle nested parentheses in values
+            let parts = [];
+            let depth = 0;
+            let current = '';
+            
+            for (let i = 0; i < paramStr.length; i++) {
+                const char = paramStr[i];
+                if (char === '(') {
+                    depth++;
+                    current += char;
+                } else if (char === ')') {
+                    depth--;
+                    current += char;
+                    if (depth === 0) {
+                        parts.push(current);
+                        current = '';
+                        // Skip comma if exists
+                        if (i + 1 < paramStr.length && paramStr[i + 1] === ',') {
+                            i++;
+                        }
+                    }
+                } else if (depth === 0) {
+                    if (char === ',' && current.trim()) {
+                        parts.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                } else {
+                    current += char;
+                }
+            }
+            
+            if (current.trim()) {
+                parts.push(current);
+            }
+            
+            for (const part of parts) {
+                const trimmed = part.trim();
+                const m = trimmed.match(/^(.+?)\(([^)]+)\)$/);
+                if (m) {
+                    params.push({
+                        index: index++,
+                        value: m[1].trim(),
+                        type: m[2].trim()
+                    });
+                }
+            }
+            
+            return params;
+        }
+
+        function replaceSQLParams(sql, params) {
+            if (!params.length) return sql;
+            
+            let result = sql;
+            for (const param of params) {
+                const formattedValue = formatParamValue(param.value, param.type);
+                result = result.replace('?', formattedValue);
+            }
+            return result;
+        }
+
+        function formatParamValue(value, type) {
+            if (!value) return 'NULL';
+            
+            // Check if it's already quoted
+            if (value.startsWith("'") || value.startsWith('"')) {
+                return value;
+            }
+            
+            if (type.toLowerCase() === 'string' || type.toLowerCase() === 'varchar') {
+                return `'${value}'`;
+            }
+            
+            if (type.toLowerCase() === 'null') {
+                return 'NULL';
+            }
+            
+            if (type.toLowerCase() === 'boolean' || type.toLowerCase() === 'bool') {
+                return value.toLowerCase() === 'true' ? '1' : '0';
+            }
+            
+            // For numeric types, return as-is
+            if (['integer', 'int', 'long', 'bigint', 'short', 'byte', 'float', 'double', 'bigdecimal', 'decimal'].includes(type.toLowerCase())) {
+                return value;
+            }
+            
+            // For date/timestamp types
+            if (['date', 'timestamp', 'datetime', 'localdatetime'].includes(type.toLowerCase())) {
+                return `'${value}'`;
+            }
+            
+            // Default: check if it looks like a number
+            if (!isNaN(value) && value.trim() !== '') {
+                return value;
+            }
+            
+            return `'${value}'`;
+        }
+
+        function highlightSQL(sql) {
+            // SQL Keywords
+            const keywords = [
+                'SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'UPDATE', 'SET', 'DELETE', 'VALUES',
+                'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'AND', 'OR', 'NOT', 'IN',
+                'LIKE', 'BETWEEN', 'IS', 'NULL', 'AS', 'ORDER', 'BY', 'ASC', 'DESC',
+                'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT',
+                'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'CAST',
+                'CREATE', 'TABLE', 'DROP', 'ALTER', 'INDEX', 'VIEW', 'TRUNCATE',
+                'NOW', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN', 'COALESCE', 'IFNULL'
+            ];
+            
+            // Functions
+            const functions = [
+                'NOW', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN', 'COALESCE', 'IFNULL',
+                'CONCAT', 'SUBSTRING', 'UPPER', 'LOWER', 'TRIM', 'LENGTH',
+                'DATE_FORMAT', 'STR_TO_DATE', 'CURDATE', 'CURTIME', 'SYSDATE'
+            ];
+            
+            let result = sql;
+            
+            // Escape HTML
+            result = result.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Highlight strings
+            result = result.replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>');
+            
+            // Highlight numbers (standalone)
+            result = result.replace(/\b(\d+\.?\d*)\b/g, '<span class="sql-number">$1</span>');
+            
+            // Highlight keywords
+            for (const keyword of keywords) {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+                result = result.replace(regex, (match) => {
+                    // Don't replace inside HTML tags
+                    if (match.startsWith('<')) return match;
+                    return `<span class="sql-keyword">${match}</span>`;
+                });
+            }
+            
+            return result;
+        }
+
+        function getSQLType(sql) {
+            const upper = sql.trim().toUpperCase();
+            if (upper.startsWith('SELECT')) return { type: 'SELECT', class: 'type-select' };
+            if (upper.startsWith('INSERT')) return { type: 'INSERT', class: 'type-insert' };
+            if (upper.startsWith('UPDATE')) return { type: 'UPDATE', class: 'type-update' };
+            if (upper.startsWith('DELETE')) return { type: 'DELETE', class: 'type-delete' };
+            return { type: 'OTHER', class: 'type-other' };
+        }
+
+        function formatLogs() {
+            const logText = document.getElementById('logInput').value.trim();
+            if (!logText) {
+                showToast('请先输入日志内容');
+                return;
+            }
+            
+            const { sqlBlocks, totalParams, timeEstimate, lineCount } = parseMyBatisLog(logText);
+            
+            if (sqlBlocks.length === 0) {
+                document.getElementById('formattedResult').innerHTML = `
+                    <div class="empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <p>未找到有效的 MyBatis 日志格式</p>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">请确保日志包含 "Preparing:" 和 "Parameters:" 行</p>
+                    </div>`;
+                updateStats(0, 0, '-', lineCount);
+                return;
+            }
+            
+            parsedSQLs = sqlBlocks;
+            updateStats(sqlBlocks.length, totalParams, timeEstimate, lineCount);
+            
+            // Render formatted SQL
+            let html = '';
+            sqlBlocks.forEach((block, idx) => {
+                const sqlType = getSQLType(block.sql);
+                const completeSQL = replaceSQLParams(block.sql, block.params);
+                const highlightedSQL = highlightSQL(completeSQL);
+                
+                html += `
+                    <div class="sql-block">
+                        <div class="sql-header">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span class="sql-type ${sqlType.class}">${sqlType.type}</span>
+                                ${block.timestamp ? `<span class="log-timestamp" style="font-size:0.8rem;">${block.timestamp}</span>` : ''}
+                            </div>
+                            <button class="copy-btn" onclick="copySQL(${idx})">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                复制
+                            </button>
+                        </div>
+                        <div class="sql-content">${highlightedSQL}</div>`;
+                
+                if (block.params.length > 0) {
+                    html += `
+                        <div class="divider"></div>
+                        <table class="params-table">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>值</th>
+                                    <th>类型</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    
+                    block.params.forEach(param => {
+                        html += `
+                                <tr>
+                                    <td><span class="param-index">${param.index}</span></td>
+                                    <td class="param-value">${formatParamValue(param.value, param.type)}</td>
+                                    <td class="param-type">${param.type}</td>
+                                </tr>`;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>`;
+                }
+                
+                if (block.columns) {
+                    html += `
+                        <div class="divider"></div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">
+                            <strong>查询结果 (${block.total || 'N'} 行):</strong>
+                        </div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.6;">
+                            <div style="color:var(--info);margin-bottom:4px;">Columns: ${block.columns}</div>`;
+                    
+                    block.rows.forEach((row, rIdx) => {
+                        html += `<div style="color:var(--success);">Row ${rIdx + 1}: ${row}</div>`;
+                    });
+                    
+                    html += `</div>`;
+                }
+                
+                if (block.total !== null) {
+                    html += `<div style="margin-top:12px;padding:8px 12px;background:rgba(34,197,94,0.1);border-radius:6px;font-size:0.85rem;color:var(--success);">
+                        <span class="badge badge-success">✓</span> 返回 ${block.total} 条记录
+                    </div>`;
+                }
+                
+                if (block.updates !== null) {
+                    html += `<div style="margin-top:12px;padding:8px 12px;background:rgba(59,130,246,0.1);border-radius:6px;font-size:0.85rem;color:var(--info);">
+                        <span class="badge badge-info">✓</span> 影响 ${block.updates} 行
+                    </div>`;
+                }
+                
+                html += `</div>`;
+            });
+            
+            document.getElementById('formattedResult').innerHTML = html;
+            
+            // Render raw log
+            let rawHtml = '<div class="raw-log-view">';
+            const rawLines = logText.split('\n');
+            rawLines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    rawHtml += '<div class="log-line"></div>';
+                    return;
+                }
+                
+                let formatted = trimmed
+                    .replace(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]?\d*)/, '<span class="log-timestamp">$1</span>')
+                    .replace(/\b(DEBUG)\b/gi, '<span class="log-level-debug">$1</span>')
+                    .replace(/\b(INFO)\b/gi, '<span class="log-level-info">$1</span>')
+                    .replace(/\b(WARN|WARNING)\b/gi, '<span class="log-level-warn">$1</span>')
+                    .replace(/\b(ERROR)\b/gi, '<span class="log-level-error">$1</span>')
+                    .replace(/(Preparing:)/g, '<span class="log-preparing">$1</span>')
+                    .replace(/(Parameters:)/g, '<span class="log-parameters">$1</span>')
+                    .replace(/(Columns:)/g, '<span class="log-columns">$1</span>')
+                    .replace(/(Row:)/g, '<span class="log-row">$1</span>')
+                    .replace(/(Total:)/g, '<span class="log-total">$1</span>');
+                
+                rawHtml += `<div class="log-line">${formatted}</div>`;
+            });
+            rawHtml += '</div>';
+            
+            document.getElementById('rawResult').innerHTML = rawHtml;
+            document.getElementById('copyAllBtn').style.display = 'flex';
+            
+            showToast(`成功解析 ${sqlBlocks.length} 条 SQL 语句`);
+        }
+
+        function copySQL(idx) {
+            if (!parsedSQLs[idx]) return;
+            const sql = replaceSQLParams(parsedSQLs[idx].sql, parsedSQLs[idx].params);
+            navigator.clipboard.writeText(sql).then(() => {
+                showToast('SQL 已复制到剪贴板');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = sql;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('SQL 已复制到剪贴板');
+            });
+        }
+
+        function copyAllSQL() {
+            if (parsedSQLs.length === 0) return;
+            
+            let allSQL = parsedSQLs.map((block, idx) => {
+                const completeSQL = replaceSQLParams(block.sql, block.params);
+                const separator = idx > 0 ? '\n\n' : '';
+                return `${separator}-- SQL #${idx + 1}\n${completeSQL};`;
+            }).join('');
+            
+            navigator.clipboard.writeText(allSQL).then(() => {
+                showToast('所有 SQL 已复制到剪贴板');
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = allSQL;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('所有 SQL 已复制到剪贴板');
+            });
+        }
+
+        // Auto-format on paste
+        document.getElementById('logInput').addEventListener('paste', function() {
+            setTimeout(() => {
+                if (this.value.trim()) {
+                    formatLogs();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
